@@ -1,112 +1,79 @@
-# Local AI Knowledge Assistant (LAIKA)
+# LAIKA: Local AI Knowledge Assistant
 
-LAIKA is a fully private, offline, Retrieval-Augmented Generation (RAG) knowledge assistant. It allows you to upload company documents (PDFs and DOCX files), processes and vectorizes them locally, and uses a local Large Language Model (LLM) to answer questions with precise page-level source citations.
+LAIKA is a private, offline Q&A tool designed to let you chat with your documents locally. It uses a FastAPI backend, a Streamlit frontend, ChromaDB for semantic search, SQLite for full-text search (FTS), and Ollama for the local LLM.
 
----
+## Features
 
-## Technical Architecture
-
-- **Backend Framework:** FastAPI (Uvicorn server)
-- **Vector Database:** ChromaDB (persisted locally in-process)
-- **Metadata Database:** SQLite (stores file list, upload timestamps, and parsing status)
-- **Embedding Model:** BAAI/bge-small-en-v1.5 (runs locally on CPU via `sentence-transformers`)
-- **LLM Runtime:** Ollama running `qwen2.5:7b` (runs locally or in container network)
-- **Frontend UI:** Streamlit (dark-themed glassmorphism interface)
-
----
-
-## Local Development Setup
-
-### Prerequisites
-
-1. **Python 3.12 or 3.13** installed on your system.
-2. **Ollama** installed on your host machine.
-   - [Download Ollama](https://ollama.com/)
-   - Pull the default model:
-     ```bash
-     ollama pull qwen2.5:7b
-     ```
-   - Keep Ollama running in the background.
-
-### Step 1: Install Dependencies
-Create a virtual environment and install the required libraries:
-```bash
-# In the laika/ directory
-python -m venv .venv
-.venv\Scripts\activate      # Windows
-source .venv/bin/activate    # macOS/Linux
-
-pip install -r requirements.txt
-```
-
-### Step 2: Run the Backend API
-Start the FastAPI server:
-```bash
-uvicorn app.main:app --reload
-```
-The backend API documentation will be available at `http://localhost:8000/docs`.
-
-### Step 3: Run the Frontend UI
-In a separate terminal, start the Streamlit web application:
-```bash
-streamlit run frontend/app.py
-```
-Open your browser to `http://localhost:8501`.
-
----
-
-## Docker Quickstart
-
-To run the entire system inside Docker containers:
-
-```bash
-docker-compose up --build
-```
-
-- **Frontend Web UI:** `http://localhost:8501`
-- **FastAPI backend API:** `http://localhost:8000`
-- **ChromaDB & SQLite persistence:** Managed inside Docker volumes.
-
-> [!NOTE]
-> The Docker container connects to your host machine's Ollama service using `host.docker.internal` port `11434`. Ensure Ollama is running on your host machine and is accessible (e.g. by setting `OLLAMA_HOST=0.0.0.0` or allowing CORS on your host service if required, though the compose maps default configurations automatically).
-
----
-
-## Running Automated Tests
-
-To execute the unit and integration tests:
-
-```bash
-# In the virtual environment
-pytest
-```
-This runs the tests covering repositories, parsed text outputs, chunking offsets, vector indexing structures, and API endpoints.
-
----
+- **Document Formats**: Native support for PDF, DOCX, TXT, and MD files.
+- **Hybrid Search**: Combines semantic embeddings (ChromaDB) and keyword search (SQLite FTS5) using Reciprocal Rank Fusion (RRF).
+- **Multi-turn Chat**: Tracks conversation history and automatically reformulates follow-up queries using the local LLM to preserve context.
+- **Detailed Citations**: Interactive UI expanders display the exact referenced text snippets and source details.
+- **Customizable**: Tweak search modes, top-k chunks, score threshold, and LLM temperature directly in the UI sidebar.
 
 ## Project Structure
 
 ```
 laika/
 ├── app/
-│   ├── api/             # FastAPI routers
-│   ├── services/        # Logic services (Parsing, Chunking, Embeddings, Search, LLM)
-│   ├── repositories/    # Database operations (SQLite Metadata Repo)
-│   ├── models/          # Schemas (Pydantic models)
-│   ├── rag/             # Orchestrates the RAG flow
-│   └── utils/           # Configuration and logging helpers
-│
-├── frontend/            # Streamlit frontend files
-│
-├── data/                # Data storage directories (Git ignored)
-│   ├── uploads/         # Raw uploaded documents
-│   ├── processed/       # Cached extracted text blocks
-│   └── chroma/          # ChromaDB persistent indexes
-│
-├── tests/               # Pytest testing files
-│
-├── requirements.txt     # Dependency list
-├── Dockerfile.backend   # FastAPI backend Docker image
-├── Dockerfile.frontend  # Streamlit frontend Docker image
-└── docker-compose.yml   # Docker Compose orchestration configurations
+│   ├── api/             # FastAPI endpoints (docs, chat)
+│   ├── services/        # Core logic (parsing, chunking, embedding, LLM)
+│   ├── repositories/    # Database layers (SQLite metadata)
+│   ├── models/          # Schemas and Pydantic models
+│   ├── rag/             # RAG pipeline orchestration
+│   └── utils/           # Configuration and logging
+├── frontend/            # Streamlit UI app
+├── data/                # Local storage (ignored in Git; uploads, ChromaDB, SQLite)
+└── tests/               # pytest test suite
 ```
+
+## Quick Start
+
+### 1. Prerequisites
+- Python 3.12 or 3.13
+- **Ollama**: Download and install [Ollama](https://ollama.com/). Pull the model you want to use (default is `qwen2.5:3b`):
+  ```bash
+  ollama pull qwen2.5:3b
+  ```
+  Ensure Ollama is running in the background.
+
+### 2. Set Up the Environment
+Create a virtual environment and install dependencies:
+```bash
+python -m venv .venv
+
+# Activate venv
+# Windows:
+.venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 3. Run the Backend
+Start the FastAPI server on port 8080:
+```bash
+uvicorn app.main:app --port 8080 --reload
+```
+You can view the Swagger API docs at `http://localhost:8080/docs`.
+
+### 4. Run the Streamlit UI
+In another terminal (with the virtual environment activated), start Streamlit:
+```bash
+streamlit run frontend/app.py
+```
+Open `http://localhost:8501` in your browser.
+
+## Running Tests
+Run the test suite using pytest:
+```bash
+python -m pytest
+```
+
+## Docker Compose
+If you prefer running everything in containers, run:
+```bash
+docker-compose up --build
+```
+- **Frontend**: `http://localhost:8501`
+- **Backend API**: `http://localhost:8080`

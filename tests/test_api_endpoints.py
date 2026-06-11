@@ -19,7 +19,7 @@ def test_read_root_health():
 def test_upload_invalid_extension():
     response = client.post(
         "/api/documents/upload",
-        files=[("files", ("test.txt", b"plain text content", "text/plain"))]
+        files=[("files", ("test.png", b"image data bytes", "image/png"))]
     )
     assert response.status_code == 400
     assert "Unsupported file format" in response.json()["detail"]
