@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import time
 import os
 from pathlib import Path
 from typing import List, Dict, Any
@@ -13,7 +14,7 @@ st.set_page_config(
 )
 
 # API Configuration
-BACKEND_URL = os.getenv("LAIKA_API_URL", "http://localhost:8000").rstrip("/")
+BACKEND_URL = os.getenv("LAIKA_API_URL", "http://localhost:8080").rstrip("/")
 
 # Load Custom Premium Styles
 st.markdown("""
@@ -221,6 +222,15 @@ def api_delete_document(doc_id: str) -> bool:
         st.error(f"Deletion failed: {e}")
         return False
 
+def api_retry_document(doc_id: str) -> bool:
+    """Retry indexing a failed document."""
+    try:
+        response = requests.post(f"{BACKEND_URL}/api/documents/{doc_id}/retry", timeout=5.0)
+        return response.status_code == 202
+    except Exception as e:
+        st.error(f"Retry failed: {e}")
+        return False
+
 def api_query_chat(
     question: str,
     history: List[Dict[str, Any]],
@@ -325,19 +335,22 @@ st.sidebar.markdown("<hr style='border-color: rgba(255,255,255,0.05);'/>", unsaf
 st.sidebar.markdown('<p style="font-weight:600; font-size:0.95rem; color:#8F9CAE;">Active Knowledge Bases</p>', unsafe_allow_html=True)
 documents = api_get_documents()
 
+has_uploading = False
+
 if not documents:
     st.sidebar.info("No documents uploaded yet. Add a PDF, DOCX, TXT, or MD above to build your private knowledge assistant.")
 else:
     for doc in documents:
-        status = doc["status"]
-        if status == "INDEXED":
+        doc_status = doc["status"]
+        if doc_status == "INDEXED":
             badge_html = f'<span class="badge badge-indexed">Indexed</span>'
-        elif status == "UPLOADING":
+        elif doc_status == "UPLOADING":
             badge_html = f'<span class="badge badge-uploading">Indexing...</span>'
+            has_uploading = True
         else:
             badge_html = f'<span class="badge badge-error">Failed</span>'
             
-        doc_col1, doc_col2 = st.sidebar.columns([8, 2])
+        doc_col1, doc_col2 = st.sidebar.columns([7, 3])
         
         with doc_col1:
             short_name = doc["filename"]
@@ -357,10 +370,23 @@ else:
             )
             
         with doc_col2:
-            if st.button("🗑", key=f"del_{doc['id']}", help="Delete knowledge base"):
-                if api_delete_document(doc["id"]):
-                     st.toast(f"Deleted {doc['filename']}")
-                     st.rerun()
+            btn_col_del, btn_col_retry = st.columns(2)
+            with btn_col_del:
+                if st.button("🗑", key=f"del_{doc['id']}", help="Delete knowledge base"):
+                    if api_delete_document(doc["id"]):
+                         st.toast(f"Deleted {doc['filename']}")
+                         st.rerun()
+            with btn_col_retry:
+                if doc_status == "ERROR":
+                    if st.button("🔄", key=f"retry_{doc['id']}", help="Retry indexing"):
+                        if api_retry_document(doc["id"]):
+                            st.toast(f"Retrying {doc['filename']}...")
+                            st.rerun()
+
+# Auto-refresh while documents are still being indexed
+if has_uploading:
+    time.sleep(2)
+    st.rerun()
 
 
 # --- CHAT & INTERACTIVE Q&A WINDOW ---
@@ -409,8 +435,56 @@ if user_query:
         f'</div>',
         unsafe_allow_html=True
     )
-    
-    with st.spinner("LAIKA is searching company documents and compiling response..."):
+
+    # Build the request payload
+    formatted_history = []
+    for turn in st.session_state.chat_history:
+        formatted_history.append({"role": "user", "content": turn["question"]})
+        formatted_history.append({"role": "assistant", "content": turn["answer"]})
+
+    payload = {
+        "question": user_query,
+        "history": formatted_history,
+        "top_k": top_k,
+        "score_threshold": score_threshold,
+        "temperature": temperature,
+        "search_mode": search_mode
+    }
+
+    # Stream tokens from the backend
+    placeholder = st.empty()
+    full_answer = ""
+
+    try:
+        with requests.post(
+            f"{BACKEND_URL}/api/chat/query/stream",
+            json=payload,
+            timeout=120.0,
+            stream=True
+        ) as resp:
+            if resp.status_code == 200:
+                for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
+                    if chunk:
+                        full_answer += chunk
+                        placeholder.markdown(
+                            f'<div class="chat-bubble-container">'
+                            f'<div class="chat-bubble bubble-assistant"><b>LAIKA:</b><br/>{full_answer}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+            else:
+                # Fallback to non-streaming
+                result = api_query_chat(
+                    question=user_query,
+                    history=st.session_state.chat_history,
+                    top_k=top_k,
+                    score_threshold=score_threshold,
+                    temperature=temperature,
+                    search_mode=search_mode
+                )
+                full_answer = result.get("answer", "I encountered an error querying the system.")
+    except Exception as e:
+        # Fallback to non-streaming on connection error
         result = api_query_chat(
             question=user_query,
             history=st.session_state.chat_history,
@@ -419,14 +493,12 @@ if user_query:
             temperature=temperature,
             search_mode=search_mode
         )
-        
-    answer = result.get("answer", "I encountered an error querying the system.")
-    sources = result.get("sources", [])
-    
+        full_answer = result.get("answer", f"Connection Error: {e}")
+
     st.session_state.chat_history.append({
         "question": user_query,
-        "answer": answer,
-        "sources": sources
+        "answer": full_answer,
+        "sources": []
     })
     
     st.rerun()

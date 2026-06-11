@@ -1,5 +1,5 @@
 import httpx
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator
 from app.utils.config import settings
 from app.utils.logger import get_logger
 
@@ -150,6 +150,80 @@ Standalone rewritten search query:"""
         except Exception as e:
             logger.error(f"Error calling Ollama API: {e}")
             return f"An error occurred while calling the local LLM: {str(e)}"
+
+    @classmethod
+    def generate_answer_stream(
+        cls,
+        question: str,
+        contexts: List[str],
+        history: Optional[List[Dict[str, str]]] = None,
+        temperature: Optional[float] = None
+    ) -> Generator[str, None, None]:
+        """
+        Streaming version of generate_answer. Yields text tokens as they arrive
+        from the local Ollama model.
+        """
+        import json as json_module
+
+        context_block = "\n\n---\n\n".join(contexts) if contexts else "No context available."
+
+        if history:
+            history_lines = []
+            for msg in history[-5:]:
+                role = "User" if msg.get("role") == "user" else "Assistant"
+                history_lines.append(f"{role}: {msg.get('content')}")
+            history_text = "\n".join(history_lines)
+
+            prompt = cls.PROMPT_TEMPLATE_WITH_HISTORY.format(
+                context=context_block,
+                history=history_text,
+                question=question
+            )
+        else:
+            prompt = cls.PROMPT_TEMPLATE.format(context=context_block, question=question)
+
+        url = f"{settings.OLLAMA_BASE_URL}/api/generate"
+        payload = {
+            "model": settings.OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": True
+        }
+
+        if temperature is not None:
+            payload["options"] = {"temperature": temperature}
+
+        logger.info(f"Streaming prompt to Ollama model '{settings.OLLAMA_MODEL}' at {settings.OLLAMA_BASE_URL}")
+
+        try:
+            with httpx.Client(timeout=90.0) as client:
+                with client.stream("POST", url, json=payload) as response:
+                    response.raise_for_status()
+
+                    for line in response.iter_lines():
+                        if not line:
+                            continue
+                        try:
+                            data = json_module.loads(line)
+                            token = data.get("response", "")
+                            if token:
+                                yield token
+                            if data.get("done", False):
+                                break
+                        except json_module.JSONDecodeError:
+                            continue
+
+            logger.info("Ollama streaming response completed successfully.")
+
+        except httpx.ConnectError as e:
+            logger.error(f"Could not connect to Ollama at {settings.OLLAMA_BASE_URL}: {e}")
+            yield (
+                "I could not connect to the local Ollama service. "
+                "Please make sure Ollama is running on your system. "
+                f"Expected Ollama URL: {settings.OLLAMA_BASE_URL}"
+            )
+        except Exception as e:
+            logger.error(f"Error calling Ollama API: {e}")
+            yield f"An error occurred while calling the local LLM: {str(e)}"
 
     @classmethod
     def test_connection(cls) -> bool:

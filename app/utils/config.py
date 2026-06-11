@@ -17,7 +17,7 @@ class Settings:
     
     # LLM (Ollama)
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
     
     # Embeddings
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
@@ -27,6 +27,9 @@ class Settings:
     SCORE_THRESHOLD: float = float(os.getenv("LAIKA_SCORE_THRESHOLD", "0.42"))
     CHUNK_SIZE: int = int(os.getenv("LAIKA_CHUNK_SIZE", "500"))
     CHUNK_OVERLAP: int = int(os.getenv("LAIKA_CHUNK_OVERLAP", "100"))
+
+    # Backend Server
+    BACKEND_PORT: int = int(os.getenv("LAIKA_BACKEND_PORT", "8080"))
 
     def ensure_dirs(self):
         """Ensure all required data directories exist."""
