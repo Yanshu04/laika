@@ -4,16 +4,6 @@ LAIKA is a private, offline Q&A tool designed to let you chat with your document
 
 ---
 
-## UI Screenshots
-
-### Chat Interface and Streaming Citations
-![LAIKA Chat Interface](./screenshots/chat_demo.png)
-
-### Empty State (Upload Prompt)
-![LAIKA Empty State](./screenshots/empty_state.png)
-
----
-
 ## Features
 
 - **Document Formats**: Native support for PDF, DOCX, TXT, and MD files.
@@ -111,3 +101,19 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 3. **Configure Search Mode**: Toggle between **Hybrid**, **Vector**, and **Keyword** modes in the top bar to change the retrieval algorithm.
 4. **Chat with Documents**: Ask questions in the chat input. The response will stream token-by-token with a blinking cursor.
 5. **View Citations**: Click on any of the cited source cards under an LLM response to expand and read the exact text segment referenced.
+
+---
+
+## UI Screenshots
+
+### Chat Interface and Streaming Citations
+![LAIKA Chat Interface](./screenshots/chat_demo.png)
+
+### Empty State (Upload Prompt)
+![LAIKA Empty State](./screenshots/empty_state.png)
+
+---
+
+Built by Yanshu04.
+
+LAIKA is a private, offline Q&A tool designed to let you chat with your documents locally. It features a FastAPI backend, a custom React + Vite frontend styled with a premium editorial dark aesthetic, ChromaDB for semantic vector search, SQLite for full-text keyword search (FTS), and Ollama for the local LLM.
