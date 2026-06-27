@@ -29,7 +29,7 @@ LAIKA is a private, offline Q&A tool designed to let you chat with your document
 ```
 laika/
 ├── app/                 # FastAPI backend endpoints and services
-├── laika-ui/            # Custom React + Vite frontend
+├── frontend/            # Custom React + Vite frontend
 │   ├── src/
 │   │   ├── api/         # Fetch API client and stream parser
 │   │   ├── components/  # Sidebar, ChatArea, MessageBubble, SourceCard, DocItem, UploadZone
@@ -76,7 +76,7 @@ pip install -r requirements.txt
 Install Node packages for the React app:
 ```bash
 # Navigate to the React frontend folder
-cd laika-ui
+cd frontend
 
 # Install package dependencies
 npm install
@@ -96,7 +96,7 @@ uvicorn app.main:app --port 8000 --reload
 The FastAPI backend will start running on [http://localhost:8000](http://localhost:8000). You can check the Swagger documentation at `/docs`.
 
 ### 2. Start the Frontend Server
-In your second terminal (inside the `laika/laika-ui/` directory):
+In your second terminal (inside the `laika/frontend/` directory):
 ```bash
 npm run dev
 ```
