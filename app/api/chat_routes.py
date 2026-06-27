@@ -48,7 +48,22 @@ def stream_knowledge_base(request: QueryRequest):
             for hit in search_hits:
                 contexts.append(hit["text"])
 
-            # 4. Stream LLM tokens
+            # 4. Yield sources as a JSON line first
+            import json
+            sources_list = []
+            seen_citations = set()
+            for hit in search_hits:
+                citation_key = (hit["filename"], hit["page_number"])
+                if citation_key not in seen_citations:
+                    seen_citations.add(citation_key)
+                    sources_list.append({
+                        "filename": hit["filename"],
+                        "page_number": hit["page_number"],
+                        "text_snippet": hit["text"]
+                    })
+            yield "__SOURCES__:" + json.dumps(sources_list) + "\n"
+
+            # 5. Stream LLM tokens
             if not contexts:
                 logger.warning("No context found. LLM will be queried with empty context.")
 
