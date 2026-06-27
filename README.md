@@ -115,5 +115,3 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ---
 
 Built by Yanshu04.
-
-LAIKA is a private, offline Q&A tool designed to let you chat with your documents locally. It features a FastAPI backend, a custom React + Vite frontend styled with a premium editorial dark aesthetic, ChromaDB for semantic vector search, SQLite for full-text keyword search (FTS), and Ollama for the local LLM.
